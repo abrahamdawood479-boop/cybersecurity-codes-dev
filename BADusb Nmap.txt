@@ -1,0 +1,70 @@
+import socket
+import urllib.request
+import urllib.error
+
+def step_1():
+    # --- 1. ACQUIRING TARGET IP ---
+    try:
+        local_ip = socket.gethostbyname(socket.gethostname())
+        target_ip = ".".join(local_ip.split('.')[:-1]) + ".1"
+        print(f"[!] Auto-Targeted Gateway: {target_ip}")
+    except Exception:
+        target_ip = "127.0.0.1"
+        print(f"[!] Target IP (Fallback): {target_ip}")
+
+    # --- 2. PORT SCANNING ---
+    port_s = [21, 22, 23, 25, 53, 80, 443]
+    open_ports = []
+
+    print(f"\nScanning common ports on {target_ip}...")
+    for port in port_s:
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.settimeout(0.5)
+        result = s.connect_ex((target_ip, port))
+        if result == 0:
+            print(f"  [+] Port {port}: OPEN")
+            open_ports.append(port)
+        s.close()
+
+    # --- 3. BANNER GRABBING ---
+    if 80 in open_ports or 443 in open_ports:
+        print(f"\n[*] Extracting headers from {target_ip}...")
+        try:
+            url = f"http://{target_ip}"
+            req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
+            with urllib.request.urlopen(req, timeout=3) as response:
+                headers = response.info()
+                print(f"  [>] Server: {headers.get('Server', 'Hidden')}")
+                print(f"  [>] Technology: {headers.get('X-Powered-By', 'Unknown')}")
+        except Exception as e:
+            print(f"  [-] Could not retrieve headers: {e}")
+
+    # --- 4. DIRECTORY FUZZING ---
+    if 80 in open_ports or 443 in open_ports:
+        protocol = "https" if 443 in open_ports else "http"
+        common_dirs = ['admin', 'login', 'setup', 'config', 'cgi-bin']
+        print(f"\n[*] Fuzzing directories on {protocol}://{target_ip}...")
+        for folder in common_dirs:
+            full_url = f"{protocol}://{target_ip}/{folder}"
+            try:
+                req = urllib.request.Request(full_url, headers={'User-Agent': 'Mozilla/5.0'})
+                with urllib.request.urlopen(req, timeout=2) as response:
+                    if response.status == 200:
+                        print(f"  [+] Found: /{folder} (Status: 200)")
+            except urllib.error.HTTPError as e:
+                if e.code == 401:
+                    print(f"  [+] Found: /{folder} (Locked/Login Required)")
+            except:
+                pass
+
+    # --- 5. MISSION SUMMARY ---
+    print("\n" + "=" * 30)
+    print("      MISSION COMPLETE")
+    print("=" * 30)
+    print(f"[>] Total Open Ports Found: {len(open_ports)}")
+    print(f"[>] Target Scanned: {target_ip}")
+    print("[>] Report saved to: loot.txt")
+    print("=" * 30)
+
+if __name__ == "__main__":
+    step_1()

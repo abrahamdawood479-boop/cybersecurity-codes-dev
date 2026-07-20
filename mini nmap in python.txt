@@ -1,0 +1,60 @@
+import socket
+import urllib.request
+import urllib.error
+
+
+def step_1():
+    # --- 1. URL CLEANING ---
+    raw_input = input("Enter url (e.g., nmap.org): ").strip()
+    clean_domain = raw_input.replace("http://", "").replace("https://", "").split('/')[0]
+
+    # --- 2. IP LOOKUP ---
+    try:
+        _host_ip = socket.gethostbyname(clean_domain)
+        print(f"\n[!] Target IP: {_host_ip}")
+    except socket.gaierror:
+        print("[-] Error: Could not resolve hostname.")
+        return
+
+    # --- 3. WEB FINGERPRINTING ---
+    print(f"[*] Extracting headers from {clean_domain}...")
+    try:
+        req = urllib.request.Request(f"http://{clean_domain}", headers={'User-Agent': 'Mozilla/5.0'})
+        with urllib.request.urlopen(req, timeout=3) as response:
+            headers = response.info()
+            print(f"  [>] Server: {headers.get('Server', 'Hidden')}")
+            print(f"  [>] Technology: {headers.get('X-Powered-By', 'Unknown')}")
+    except Exception as e:
+        print(f"  [-] Could not retrieve headers: {e}")
+
+    # --- 4. PORT SCANNING ---
+    port_s = [21, 22, 23, 25, 53, 80, 443]
+    print(f"\nScanning common ports on {_host_ip}...")
+    for port in port_s:
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.settimeout(0.5)
+        result = s.connect_ex((_host_ip, port))
+        if result == 0:
+            print(f"  [+] Port {port}: OPEN")
+        s.close()
+
+    # --- 5. SUBDOMAIN ENUMERATION ---
+    try:
+        with open('subdomain.txt', 'r') as file:
+            enumerating = file.read().splitlines()
+        print(f"\nLoaded {len(enumerating)} subdomain(s). Scanning...")
+
+        for sub in enumerating:
+            sub_url = f"http://{sub}.{clean_domain}"
+            try:
+                with urllib.request.urlopen(sub_url, timeout=2) as get_response:
+                    if get_response.status == 200:
+                        print(f"  [+] Found: {sub_url}")
+            except:
+                pass
+    except FileNotFoundError:
+        print("\n[-] Skipping subdomains: subdomain.txt not found.")
+
+
+# Run the function
+step_1()
