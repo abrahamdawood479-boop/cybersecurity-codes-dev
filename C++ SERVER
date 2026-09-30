@@ -1,0 +1,152 @@
+#include <iostream>
+#include <string>
+#include <vector>
+#include <array>
+#include <sys/socket.h> // socket, bind, listen, accept
+#include <netinet/in.h> // sockaddr_in, INADDR_ANY
+#include <arpa/inet.h>  // htons
+#include <unistd.h>     // close
+#include <cerrno>       // errno
+#include <cstring>      // strerror
+
+// ++++ GETTING BLUEPRINTS SORTED ++++
+
+// *** LOCAL NETWORK
+struct LOCAL_info {
+   std::string LOOPBACK_ip = "192.168.0.1";
+   int LOOPBACK_port = 5050;
+};
+
+// *** LAN NETWORK 
+struct LAN_info {
+   std::string PRIVATE_ip = "172.16.0.1";
+   std::string PRIVATE_subnet_mask = "255.255.0.0"; 
+   int PRIVATE_port = 8080;
+};
+
+// *** PUBLIC NETWORK
+struct PUBLIC_info {
+   // Sticking to standard IPv4 loop framework for compatibility with AF_INET
+   std::string PUBLIC_ip = "128.0.0.1"; 
+   int PUBLIC_protocol_ports[4] = {443, 80, 21, 20};
+};
+
+// *** DATABASE CREATION
+struct DATABASE {
+   int DATA_BASE[5][5] = {0}; // Clear initial state matrix
+   int total_writes = 0;      // Counter layout tracking
+};
+
+// *** GLOBAL SERVER PARAMETERS
+constexpr int BACKLOG_QUEUE = 5;
+constexpr int BUFFER_SIZE = 8192;
+
+// ==========================================
+// THE MAIN EXECUTIVE FUNCTION BLOCK
+// ==========================================
+int main() {
+   // Instantiate our active blueprint layout objects
+   PUBLIC_info pub;
+   DATABASE db;
+
+   std::cout << "[STARTUP] Initializing Advanced LAN Socket Infrastructure...\n";
+
+   // 1. LISTENING FOR CONNECTION VIA SPECIFIC PORT
+   int LISTENING_SOCKET = socket(AF_INET, SOCK_STREAM, 0);
+   if (LISTENING_SOCKET == -1) {
+      std::cerr << "❌ Connection initialization failed: " << strerror(errno) << "\n";
+      return 1;
+   }
+
+   // 2. APPLYING RULES TO THE BLUEPRINT STRUCTS
+   struct sockaddr_in serverAddress{};
+   serverAddress.sin_family = AF_INET; 
+   serverAddress.sin_addr.s_addr = INADDR_ANY; // Accept incoming IPv4 traffic from anywhere
+   serverAddress.sin_port = htons(pub.PUBLIC_protocol_ports[1]); // Bind to Port 80 from array
+
+   // 3. CORRELATING & BINDING IP SOCKET WITH PORT(S)
+   if(bind(LISTENING_SOCKET, (struct sockaddr*)&serverAddress, sizeof(serverAddress)) == -1){ 
+      std::cerr << "[ERROR] Port: " << pub.PUBLIC_protocol_ports[1] << " is already in use or restricted: " << strerror(errno) << "\n";
+      close(LISTENING_SOCKET);
+      return 1;
+   }
+
+   // 4. START LISTENING
+   if (listen(LISTENING_SOCKET, BACKLOG_QUEUE) == -1){
+      std::cerr << "[ERROR] Could not enter listening mode\n";
+      close(LISTENING_SOCKET);
+      return 1;
+   }
+   else {
+      std::cout << "[SUCCESS] Entered listening mode on port: " << pub.PUBLIC_protocol_ports[1] << "\n";
+   }
+
+   // 5. ACCEPT INCOMING CLIENT CONNECTION (SYN, SYN-ACK, ACK)
+   struct sockaddr_in clientAddress{};
+   socklen_t client_length = sizeof(clientAddress);
+
+   std::cout << "[AWAITING CONNECTION] Listening for client connection handshake packets...\n";
+   int client_socket = accept(LISTENING_SOCKET, (struct sockaddr*)&clientAddress, &client_length); 
+   
+   if (client_socket == -1 ){
+      std::cerr << "[ERROR] Failed to accept client connection: " << strerror(errno) << "\n";
+      close(LISTENING_SOCKET); 
+      return 1; 
+   }
+   else {
+      std::cout << "[CONNECTED] A client has joined SUCCESSFULLY!\n";
+   }
+
+   // 6. ACCEPT CLIENT DATA
+   char message_buffer[BUFFER_SIZE] = {0};
+   ssize_t bytesRead = recv(client_socket, message_buffer, BUFFER_SIZE - 1, 0);
+   
+   if (bytesRead > 0){
+      std::cout << "[SUCCESS] Client's data received successfully. Payload: " << message_buffer << "\n";
+      
+      // Convert incoming message buffer representation to integer data metric for storing
+      int processing_data = atoi(message_buffer); 
+      if(processing_data == 0) { processing_data = 999; } // Fallback default dummy metric if data is raw string
+
+      // 7. STORE CLIENT DATA BY FILLING UP ROWS & COLUMNS
+      if (db.total_writes >= 25){
+         std::cout << "[ERROR] DATABASE IS FULL. CLEAR SPACE FOR EXTRA USE OR SIGN UP FOR SUBSCRIPTION\n";
+      }
+      else {
+         int row = db.total_writes / 5;
+         int col = db.total_writes % 5;
+         
+         db.DATA_BASE[row][col] = processing_data;
+         std::cout << "[DATABASE] Storing metrics inside matrix row: " << row << " col: " << col << "\n";
+         
+         db.total_writes++;
+         
+         if(db.total_writes == 25){
+            std::cout << "📢 DATABASE HAS BEEN COMPLETELY FILLED!\n";
+         }
+      }
+      
+      // 8. RETRIEVE DATA AND TRANSMIT BACK TO CLIENT
+      std::string response_payload = "[SERVER ECHO] Data packet logged into matrix slot architecture safely.\n";
+      ssize_t BytesSent = send(client_socket, response_payload.c_str(), response_payload.length(), 0);
+      if(BytesSent < 0){
+         std::cerr << "[ERROR] Data could not be transmitted back to target client.\n";
+      } 
+      else {
+         std::cout << "[SUCCESS] Sent " << BytesSent << " bytes of transactional verification data to client.\n";
+      }
+   }
+   else if (bytesRead == 0){
+      std::cout << "[NOTICE] Client disconnected cleanly before sending data.\n";
+   }
+   else {
+      std::cout << "[ERROR] Client socket data read failure occurred.\n";
+   }
+
+   // 9. CLEAN UP AND CLOSE SOCKETS Safely
+   close(client_socket);
+   close(LISTENING_SOCKET);
+   std::cout << "[SHUTDOWN] Server closed down safely.\n";
+
+   return 0;
+}
