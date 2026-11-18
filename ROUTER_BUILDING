@@ -1,0 +1,229 @@
+#include <iostream>
+#include <string>
+#include <cstring>
+#include <cstdint>
+// client side used for generating XID #include <random> UPDATE: NVM down below we use random for random num generator to create ip but i'll leave this line here for educational purposes
+#include <arpa/inet.h>
+#include <chrono>
+#include <random>
+#include <iomanip>
+#include <sstream>
+
+
+
+// ==========================================
+// 1. THE SUBSYSTEM BLUEPRINTS
+// ========================================== DONT FORGET MULTITHREADING THATS ONE OF THE THINGS I WANT TO DO
+
+void run_dhcp_server_PRECONFIG() {
+
+    // ##### CONFIGURATION ENGINE #####
+    struct CONFIGURATION_ENGINE_CONFIGS{
+        uint8_t op; // did signals come from client (1) or server (2)
+        uint8_t htype; // hardware type = know which level of OSI-tcp/ip to operate at
+        uint8_t hlen; // hardware address length = know how many bytes to read for MAC address
+        uint8_t hops; // number of hops = know how many routers to traverse before giving up can be many routers inside lan or travelling externally
+        uint32_t xid; // transaction ID = client creates rand num str and so server takes it and stamps it with the packets to say hey its yours and to verify
+        uint16_t secs; // seconds elapsed = how long has the client been trying to get an IP address. Longer time devices wait means more priority for them
+        uint16_t flags; // flags = hexadecimal number like 0x8000 which is a broadcast flag
+        uint32_t ciaddr; // ciaddr = Client Ip Address is filled by client during IP ADDR renewal only when it already has a vlaid working IP address
+        uint32_t yiaddr; // Your Ip Address = part of the process where server lends an IP address, think of it as "here you go "your ip address" ".
+        uint32_t siaddr; // Server Ip Address = the ip address of the next to use in bootstrap configuration (often used to tell a device where to download a boot file via TFTP). Some use that method, instead of device having their own OS and configurations, there is a specified place for it where it is kept and stored, that way if devices get hacked they flush eevrything out anyways and start fresh because the origin soruce isn't affected, this happens in places like the ASD (AUS) to ensure everything is kept enclosed and not out to other networks to be stalked and sniffed at.
+        uint32_t giaddr; // Gateway Ip Address = if dhcp server was external to the LAN the requesting device was in, the gateway is the linking cord and so if dhcp and requesting device need to talk, the gateways ip is used as the linking cord in the middle to have a stable connection.
+        uint8_t chaddr [16]; //Client Hardware Address = the MAC address is stored here, the reason for 16 bytes (considering the "normal" MAC ADDR size is 6 bytes) is because some distributors like firewire and infiniband use longer MAC addresses, so this keeps it compatable with all types of mac lengths. 
+        char sname [64]; // Server Name = creating DHCP server name. some coorperate enviroments are very large there are a bunch of /domain(s)/directorie(s)/folder_path(s)/file(s). links cna be extreeeemly long as you sometimes see in the web browser search bar so this long number is needed as crazy as it sounds
+        char file [128]; // Used for Bootfile link to be redirected to to get bootfile info, 128 bytes is used for 128 characters, rememebr each character of char is 1 byte (1 byte = 8 bits).
+        uint8_t magic_cookie [4]; // this is a 4 block piece. its only used for dhcp data sending. wether client or server is sending data, Data is broken down into 4 even blocks and send tot he opposing person(the reciever), the reciever puts the peices togather and if the 4 block puzzle matches then they can read the data and confirm the dhcp connection is still running.
+        uint8_t options [312]; // the smallest raw packet sent through the internet without any wrapping around it is 308 bytes but we ad 4 bytes to make it an evenly divisable number for protocols sake. 
+    };
+
+    //ESSENTIAL CONSTANTS
+    /*1.*/constexpr uint8_t DHCP_BOOTREPLY = 2;
+    /*2.*/constexpr uint8_t DHCP_HTYPE = 1;
+    /*3.*/constexpr uint16_t DHCP_BROADCAST = 0x8000;
+
+    /*1.*/constexpr uint8_t DHCP_HLEN_CLIENT = 6;
+    /*2.*/constexpr uint8_t DHCP_BOOTREPLY_CLIENT = 1;
+    
+    /*1.*/constexpr int DHCP_SERVER_PORT = 67;
+    /*2.*/constexpr int DHCP_CLIENT_PORT = 68;
+    
+
+    // IPv4 POOL CONFIGURATIONS / pool management
+    constexpr uint32_t POOL_START_IP = 0xC0A80132
+    constexpr uint32_t POOL_END_IP = 0xC0A80164
+    constexpr uint32_t LEASE_TIME = 86400
+
+    // IP GENERATOR
+    struct IP_GEN{
+        std::vector <int> nums (2);
+        std::random_device <int> rd(nums)
+        std::mt19937 gen(rd());
+        std::uniform_int_distribution<int> distr(50, 100);
+        int random_num = distr(gen);
+        std::stringstream ss;
+        ss << "192.168" << distr(gen);
+        std::string ip_address = ss.string();
+        int allocated_ip = std::stoi(ip_address):
+
+        int allocated_ip_hex_version{};
+        std::hex << allocated_ip;
+    };
+
+};
+
+
+
+    std::cout << "[DHCP] Dynamic Address Allocation Engine Online...\n";
+
+    
+    //Phase 1: Core Networking & Server Architecture
+
+    // ##### Network Socket Initialization #####
+    struct NETWORK_SOCKETS {
+        int server_fd = socket(AF_INET, SOCK_DGRAM, 0);
+
+        //1. broadcast permission options
+        int broadcast_perm = 1;
+        setsockopt(server_fd, SOL_SOCKET, SO_BROADCAST, &broadcast_perm, sizeof(broadcast_perm));
+
+        //2. configure target broadcast address
+        sockaddr_in broadcast_addr{};
+        broadcast_addr.sin_family = AF_INET;
+        broadcast_addr.sin_port = htons(67);
+        broadcast_addr = inet_pton(AF_INET,run_dhcp_server_PRECONFIG.DHCP_BROADCAST, &broadcast_addr.sin);
+        bind(server_fd, (struct sockaddr*)&broadcast_addr, sizeof(broadcast_addr)); 
+    };
+
+    struct CLIENT_CONFIG_SOCKET {
+      char BUFFER [1024];
+      sockaddr_in client_ADDR{};
+      socklen_t addr_len = sizeof(client_ADDR);
+
+      while (true){
+         ssize_t bytes_recieved = recvfrom(server_fd, BUFFER, sizeof(BUFFER) -1, 0, (struct sockaddr*)&client_ADDR, &addr_len);
+
+         if(bytes_recieved > 0){
+            client_addr.sin_familt = AF_INET;
+            client_addr.sin_port = htons (68);
+         }
+      }
+    };
+
+
+
+
+
+    //Phase 2: Message Parsing & The Packet Pipeline
+
+    // Packet Anatomy Definitions && Options Parser & Serializer
+    void client_DHCP_PACKET(std::any CLIENT_PACKS, auto& DAT = CLIENT_PACKS){
+      CLIENT_PACKS = CONFIGURATION_ENGINE_CONFIGS;
+      CLIENT_PACKS.op = 1;
+      CLIENT_PACKS.CONFIGURATION_ENGINE_CONFIGS;
+
+      DAT = const& std::format(client_DHCP_PACKET);
+    };
+
+
+
+
+    
+    //Phase 3: The State Machine (The DORA Process)
+
+    // Discover Packet Handler
+    if (client_DHCP_PACKET.client_PACKS.op == 1){
+        inet_pton(AF_INET, "255.255.255.255", &DHCP_BROADCAST);
+        ssize_t broad_bytes = sendto(CLIENT_CONFIG_SOCKET (sock_addr*)&clientADDR, clientADDR, sizeof(clientADDR));
+    }
+
+    // Offer Packet Constructor
+    
+
+    // Request Packet Handler
+    // Acknowledge Packet Constructor
+    // Decline & Release Handlers
+
+    //Phase 4: Storage, Timers & Security
+
+    // Lease Persistence Database
+    // Lease Expiration Monitor
+
+
+
+void run_dhcp_server_2(){
+    return run_dhcp_server_PRECONFIG();
+    return run_dhcp_server();
+    return DHCP_MAIN_EXECUTION();
+}
+
+// ##################################################################
+// ##################################################################
+// ##################################################################
+// ##################################################################
+// ##################################################################
+// ##################################################################
+// ##################################################################
+// ##################################################################
+// ##################################################################
+// ##################################################################
+
+
+void run_arp_table() {
+    std::cout << "[ARP] Hardware MAC to IP Mapping Cache Active...\n";
+}
+
+void run_firewall() {
+    std::cout << "[FIREWALL] Stateful Packet Filtering Engine Active...\n";
+}
+
+void run_ids() {
+    std::cout << "[IDS] Intrusion Detection System Monitoring Network Traffic...\n";
+}
+
+void run_ips() {
+    std::cout << "[IPS] Intrusion Prevention System Ready to Block Threats...\n";
+}
+
+void run_nat() {
+    std::cout << "[NAT] Network Address Translation Engine Operational...\n";
+}
+
+void run_switch() {
+    std::cout << "[SWITCH] Layer 2 Switching Engine Active...\n";
+}
+
+void run_wifi() { //wired, wireless, RF
+    std::cout << "[WIFI] Wireless Access Point and RF Management Online...\n";
+}
+
+void run_router() {
+    std::cout << "[ROUTER] Routing Engine Ready to Forward Packets...\n";
+}
+
+
+
+
+
+
+
+// ==========================================
+// 2. PUTTING EVERYTHING TOGATHER
+// ==========================================
+int main() {
+    std::cout << "⚡ Booting Router OS Security Kernel v1.0...\n\n";
+
+    // Booting up your subsystems sequentially
+    run_dhcp_server_2();
+    run_arp_table();
+    run_firewall();
+    run_ids();
+    run_ips();
+    run_nat();
+    run_switch();
+    run_wifi();
+    run_router();
+
+    std::cout << "\n🌐 Router operational and guarding LAN interfaces.\n";
+    return 0;
+}
